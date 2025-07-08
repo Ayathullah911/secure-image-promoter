@@ -10,24 +10,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
 
-    - name: Set up Docker
-      uses: docker/setup-buildx-action@v3
+      - name: 🐳 Build Docker image
+        run: docker build -t secure-app:latest .
 
-    - name: Build Docker image
-      run: docker build -t secure-app:latest .
+      - name: 🧪 Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install wget -y
+          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.44.0_Linux-64bit.deb
+          sudo dpkg -i trivy_0.44.0_Linux-64bit.deb
 
-    - name: Install Trivy
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: image
-        image-ref: secure-app:latest
-        format: table
-        exit-code: 1
-        severity: CRITICAL,HIGH
+      - name: 🔍 Scan Docker image with Trivy
+        run: |
+          trivy image --severity HIGH,CRITICAL --exit-code 1 --format table --output trivy-report.txt secure-app:latest
 
-    - name: Fail if vulnerabilities are found
-      if: failure()
-      run: echo "🚫 Security vulnerabilities found. Build failed."
+      - name: 📤 Upload Trivy report
+        if: always()  # Upload even if scan fails
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-report.txt
